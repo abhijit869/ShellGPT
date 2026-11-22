@@ -1,0 +1,2 @@
+# ShellGPT
+Terminal Based CLI
