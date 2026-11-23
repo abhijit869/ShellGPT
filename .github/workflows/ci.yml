@@ -1,0 +1,25 @@
+name: ShellGPT CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run ShellGPT TypeScript Build Verification
+        run: npm run build
+      - name: Run ShellGPT TypeScript Unit, Integration, and E2E Tests
+        run: npm test
+      - name: Run Preserved Python Gateway & Bridge Unit Tests
+        run: npm run test:python

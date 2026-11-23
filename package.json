@@ -1,0 +1,48 @@
+{
+  "name": "shellgpt-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production-grade, multi-agent, extensible AI coding CLI with Google Antigravity, OpenAI Codex, REA MCP, and Universal Provider Gateway",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "shellgpt": "./bin/shellgpt"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "shellgpt": "node --no-warnings ./apps/cli/src/index.ts",
+    "start": "node --no-warnings ./apps/cli/src/index.ts",
+    "test": "node --no-warnings --test tests/unit/*.test.ts tests/integration/*.test.ts tests/e2e/*.test.ts",
+    "test:unit": "node --no-warnings --test tests/unit/*.test.ts",
+    "test:integration": "node --no-warnings --test tests/integration/*.test.ts",
+    "test:e2e": "node --no-warnings --test tests/e2e/*.test.ts",
+    "test:python": "python3 -m unittest discover -s tests -v",
+    "test:all": "npm run test && npm run test:python",
+    "doctor": "node --no-warnings ./apps/cli/src/index.ts doctor",
+    "build": "node --no-warnings ./scripts/build.ts"
+  },
+  "dependencies": {
+    "@clack/prompts": "1.7.0",
+    "@modelcontextprotocol/client": "2.3.1",
+    "@modelcontextprotocol/core": "2.3.1",
+    "@modelcontextprotocol/server": "2.3.1",
+    "ajv": "8.20.0",
+    "cross-spawn": "7.0.6",
+    "diff": "9.0.0",
+    "ignore": "7.0.6",
+    "jsonc-parser": "3.3.1",
+    "pino": "10.4.0",
+    "semver": "7.8.5",
+    "smol-toml": "1.9.0",
+    "ws": "8.21.0",
+    "write-file-atomic": "7.0.0",
+    "yaml": "2.9.0",
+    "zod": "4.6.6"
+  }
+}

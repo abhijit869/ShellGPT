@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+node_modules/
+.shellgpt/*.db
+.shellgpt/*.db-*
+.shellgpt/secrets.enc
+.shellgpt/logs/
+.shellgpt/worktrees/
