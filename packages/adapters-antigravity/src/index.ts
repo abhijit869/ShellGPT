@@ -1,3 +1,4 @@
+import { runtimeEnvironment } from '@shellgpt/config';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -14,6 +15,20 @@ import type {
   AgentError,
   TaskArtifact,
 } from '@shellgpt/agents';
+
+export interface AntigravityTaskParameters {
+    taskId?: string;
+    prompt: string;
+    systemInstructions?: string;
+    model?: string;
+    readOnly?: boolean;
+    conversationId?: string;
+    continueSession?: boolean;
+    additionalDirs?: string[];
+    allowDelegationToCodex?: boolean;
+    onStreamEvent?: (event: { type: string; text?: string; raw?: unknown }) => void;
+    signal?: AbortSignal;
+}
 
 export interface AntigravityDelegationRequest {
   targetAgent: 'codex' | string;
@@ -261,7 +276,7 @@ export class AntigravityAdapter implements AgentRuntime {
    * Prepare a writable HOME directory if ~/.gemini/antigravity-cli is mounted read-only in a sandbox.
    */
   private prepareExecutionEnv(): NodeJS.ProcessEnv {
-    const env: NodeJS.ProcessEnv = { ...process.env };
+    const env: NodeJS.ProcessEnv = runtimeEnvironment();
     delete env.ANTHROPIC_BASE_URL;
     delete env.ANTHROPIC_AUTH_TOKEN;
     delete env.SHELLGPT_API_KEY;
@@ -301,6 +316,7 @@ export class AntigravityAdapter implements AgentRuntime {
           if (fs.existsSync(c)) return c;
         } else {
           const found = execFileSync('which', [c], {
+            env: runtimeEnvironment(),
             encoding: 'utf8',
             stdio: ['ignore', 'pipe', 'ignore'],
           }).trim();
@@ -343,6 +359,7 @@ export class AntigravityAdapter implements AgentRuntime {
     let sdkAvailable = false;
     try {
       execFileSync('python3', ['-c', 'import google.antigravity'], {
+        env: runtimeEnvironment(),
         stdio: 'ignore',
         timeout: 3000,
       });
@@ -407,18 +424,14 @@ export class AntigravityAdapter implements AgentRuntime {
   /**
    * Executes a task on Google Antigravity using official `agy --input-format stream-json --output-format stream-json`.
    */
-  public async executeTask(params: {
-    taskId?: string;
-    prompt: string;
-    systemInstructions?: string;
-    model?: string;
-    conversationId?: string;
-    continueSession?: boolean;
-    additionalDirs?: string[];
-    allowDelegationToCodex?: boolean;
-    onStreamEvent?: (event: { type: string; text?: string; raw?: unknown }) => void;
-    signal?: AbortSignal;
-  }): Promise<AntigravityExecutionResult> {
+  public executeTask(task: AgentTask): Promise<AgentResult>;
+  public executeTask(params: AntigravityTaskParameters): Promise<AntigravityExecutionResult>;
+  public executeTask(params: AgentTask | AntigravityTaskParameters): Promise<AgentResult | AntigravityExecutionResult> {
+    if ('sessionId' in params) return this.streamTask(params, () => {});
+    return this.executeLegacyTask(params);
+  }
+
+  private async executeLegacyTask(params: AntigravityTaskParameters): Promise<AntigravityExecutionResult> {
     const taskId = params.taskId || `agy_${crypto.randomUUID().slice(0, 8)}`;
     const bin = this.resolveBinaryPath();
     const model = params.model || this.defaultModel;
@@ -441,7 +454,9 @@ export class AntigravityAdapter implements AgentRuntime {
     }
 
     const childPerms = this.permissions
-      ? this.permissions.deriveChildAgentPermissions()
+      ? this.permissions.deriveChildAgentPermissions(
+          params.readOnly ? 'read-only' : undefined,
+        )
       : {
           antigravityMode: 'plan' as const,
           antigravityToolPermission: 'strict' as const,
@@ -725,11 +740,12 @@ export class AntigravityAdapter implements AgentRuntime {
       timestamp: now(),
     });
 
-    const rawRes = await this.executeTask({
+    const rawRes = await this.executeLegacyTask({
       taskId: task.taskId,
       prompt: task.prompt,
       systemInstructions: task.systemInstructions,
       model: task.model,
+      readOnly: task.readOnly,
       conversationId: task.sessionId,
       allowDelegationToCodex: task.allowSubagentDelegation ?? true,
       signal: task.signal,

@@ -1,3 +1,5 @@
+import { streamOpenAI, openAIHistory } from './openai-stream.ts';
+import { ModelRouter, type ModelCandidate, type RoutingRequest } from '../../router/src/index.ts';
 import * as crypto from 'node:crypto';
 import {
   type ProviderProfile,
@@ -206,12 +208,23 @@ export class UniversalHttpProvider implements ModelProvider {
           headers,
           signal: controller.signal,
         });
-        if (!res.ok) return this.profile.defaultModel ? [this.profile.defaultModel] : [];
+        if (!res.ok) return [];
         const data = (await res.json()) as { data?: Array<{ id: string }> };
         return (data.data || []).map((m) => m.id);
       }
 
-      return this.profile.defaultModel ? [this.profile.defaultModel] : [];
+      if (resolved.format === 'anthropic' || resolved.format === 'gemini') {
+        const key = this.resolveApiKey();
+        const headers: Record<string, string> = { ...this.profile.headers };
+        if (key) headers[resolved.format === 'anthropic' ? 'x-api-key' : 'x-goog-api-key'] = key;
+        if (resolved.format === 'anthropic') headers['anthropic-version'] = '2023-06-01';
+        const url = resolved.format === 'anthropic' ? `${resolved.baseUrl}/v1/models` : `${resolved.baseUrl}/models`;
+        const res = await fetch(url, { headers, signal: controller.signal });
+        if (!res.ok) return [];
+        const data = await res.json() as { data?: Array<{ id: string }>; models?: Array<{ name: string }> };
+        return resolved.format === 'anthropic' ? (data.data ?? []).map(m => m.id) : (data.models ?? []).map(m => m.name.replace(/^models\//, ''));
+      }
+      return [];
     } catch {
       return [];
     } finally {
@@ -222,7 +235,7 @@ export class UniversalHttpProvider implements ModelProvider {
   public async validateModel(model: string): Promise<boolean> {
     if (!model || !model.trim()) return false;
     const models = await this.listModels();
-    if (models.length === 0) return Boolean(this.profile.defaultModel || model);
+    if (models.length === 0) return false;
     return models.includes(model);
   }
 
@@ -235,7 +248,7 @@ export class UniversalHttpProvider implements ModelProvider {
     const outputTokens = estimateTokens(responseText);
     const totalTokens = inputTokens + outputTokens;
     const estimatedCostUsd = this.profile.billable
-      ? Number(((inputTokens * 0.000003) + (outputTokens * 0.000015)).toFixed(6))
+      ? this.profile.costPerMillion === undefined ? 'unavailable' as const : Number((totalTokens * this.profile.costPerMillion / 1_000_000).toFixed(6))
       : 0;
     return {
       inputTokens,
@@ -298,8 +311,8 @@ export class UniversalHttpProvider implements ModelProvider {
         request.model ||
         (this.profile.type === 'asemprotic'
           ? process.env.ASEMPROTIC_MODEL || this.profile.defaultModel
-          : this.profile.defaultModel) ||
-        'default';
+          : this.profile.defaultModel);
+      if (!model) throw new Error(`Provider "${this.id}" requires an explicitly configured or discovered model.`);
 
       if (resolved.format === 'anthropic') {
         return await this.generateAnthropic(
@@ -352,11 +365,7 @@ export class UniversalHttpProvider implements ModelProvider {
 
     const body: Record<string, unknown> = {
       model,
-      messages: request.messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-        ...(m.toolCallId ? { tool_call_id: m.toolCallId } : {}),
-      })),
+      messages: openAIHistory(request.messages),
       max_tokens: request.maxTokens ?? this.profile.maxOutputTokens,
       temperature: request.temperature ?? this.profile.temperature,
     };
@@ -695,7 +704,31 @@ export class UniversalHttpProvider implements ModelProvider {
     request: GenerateRequest,
     onChunk: (delta: { text?: string; toolCall?: ToolCallRequest }) => void,
   ): Promise<GenerateResponse> {
-    const response = await this.generate({ ...request, stream: true });
+    const resolved = this.resolveEffectiveFormat();
+    if (resolved.valid && resolved.baseUrl && resolved.format === 'openai' && this.profile.streaming) {
+      const auth = await this.authenticate();
+      if (!auth.authenticated) throw new Error(auth.detail);
+      const model = request.model ?? this.profile.defaultModel;
+      if (!model) throw new Error('Streaming requires a configured or discovered model.');
+      if (this.profile.budgetLimitUsd !== undefined && this.totalSpendUsd >= this.profile.budgetLimitUsd) throw new Error('Provider budget exhausted.');
+      const controller = new AbortController();
+      const requestId = request.requestId ?? crypto.randomUUID();
+      this.activeControllers.set(requestId, controller);
+      const abort = () => controller.abort();
+      if (request.signal?.aborted) abort();
+      request.signal?.addEventListener('abort', abort, { once: true });
+      const timer = setTimeout(abort, this.profile.timeoutMs);
+      const key = this.resolveApiKey();
+      try {
+        return await streamOpenAI({
+          url: resolved.baseUrl.endsWith('/chat/completions') ? resolved.baseUrl : `${resolved.baseUrl}/chat/completions`,
+          headers: { ...this.profile.headers, 'Content-Type': 'application/json', ...(key ? { Authorization: `Bearer ${key}` } : {}) },
+          providerId: this.id, model, request, signal: controller.signal,
+          maxTokens: this.profile.maxOutputTokens, temperature: this.profile.temperature, onChunk,
+        });
+      } finally { clearTimeout(timer); request.signal?.removeEventListener('abort', abort); this.activeControllers.delete(requestId); }
+    }
+    const response = await this.generate({ ...request, stream: false });
     if (response.text) {
       onChunk({ text: response.text });
     }
@@ -740,15 +773,15 @@ export class UniversalHttpProvider implements ModelProvider {
       };
     }
 
+    const models = await this.listModels();
+    const healthy = models.length > 0;
     return {
-      providerId: this.id,
-      healthy: true,
-      authenticated: true,
-      availableModels: this.profile.defaultModel ? [this.profile.defaultModel] : [],
-      supportsTools: true,
-      supportsStreaming: this.profile.streaming,
+      providerId: this.id, healthy, authenticated: healthy, availableModels: models,
+      supportsTools: this.profile.capabilities.includes('tools'), supportsStreaming: this.profile.streaming,
       latencyMs: Date.now() - start,
-      diagnostic: `${this.profile.name} ready (${resolved.format}, default model: ${this.profile.defaultModel || 'unspecified'}).`,
+      diagnostic: healthy
+        ? `${this.profile.name}: model catalog reachable; generation and model capabilities still require a request.`
+        : `${this.profile.name}: model catalog unavailable; credentials or endpoint could not be verified.`,
     };
   }
 }
@@ -788,35 +821,43 @@ export class ProviderGateway {
     return results;
   }
 
-  public async findHealthyCustomProvider(priorityOrder: string[]): Promise<{
-    provider: ModelProvider;
-    health: ProviderHealthStatus;
-  } | undefined> {
-    const localIds = new Set(['ollama', 'lmstudio', 'llamacpp', 'vllm']);
-    for (const id of priorityOrder) {
-      if (localIds.has(id)) continue;
-      const p = this.providers.get(id);
-      if (!p || !p.profile.enabled) continue;
-      const health = await p.healthCheck();
-      if (health.healthy && health.authenticated) {
-        return { provider: p, health };
-      }
+  public async routeModel(priorityOrder: string[], request: RoutingRequest & {
+    allowBillableFallback?: boolean; task?: 'chat' | 'coding' | 'planning' | 'review' | 'fast';
+  } = {}): Promise<{ provider: ModelProvider; health: ProviderHealthStatus; model: string } | undefined> {
+    const candidates: ModelCandidate[] = [];
+    const healthById = new Map<string, ProviderHealthStatus>();
+    const localTypes = new Set(['ollama', 'lmstudio', 'llamacpp', 'vllm']);
+    for (const provider of this.providers.values()) {
+      const profile = provider.profile;
+      const local = localTypes.has(profile.type);
+      if (!profile.enabled || (request.local !== undefined && request.local !== local) ||
+          (request.providerId && provider.id !== request.providerId) || request.excludeProviders?.includes(provider.id)) continue;
+      const authorized = !profile.billable || request.providerId === provider.id || request.allowBillableFallback === true;
+      if (!authorized) continue;
+      const health = await provider.healthCheck();
+      healthById.set(provider.id, health);
+      const taskModel = request.task === 'coding' ? profile.codingModel : request.task === 'planning' ? profile.planningModel
+        : request.task === 'review' ? profile.reviewModel : request.task === 'fast' ? profile.fastModel : undefined;
+      const preferred = request.model ?? taskModel ?? profile.defaultModel;
+      const models = preferred ? health.availableModels.filter(m => m === preferred) : health.availableModels;
+      for (const model of models) candidates.push({
+        providerId: provider.id, model, enabled: profile.enabled, healthy: health.healthy,
+        authenticated: health.authenticated, authorized, local,
+        priority: priorityOrder.includes(provider.id) ? priorityOrder.indexOf(provider.id) : priorityOrder.length,
+        capabilities: profile.capabilities, contextTokens: profile.contextBudget,
+        costPerMillion: profile.costPerMillion, latencyMs: health.latencyMs,
+      });
     }
-    return undefined;
+    const selected = new ModelRouter().select(candidates, request).selected;
+    if (!selected) return undefined;
+    return { provider: this.providers.get(selected.providerId)!, health: healthById.get(selected.providerId)!, model: selected.model };
   }
 
-  public async findHealthyLocalProvider(): Promise<{
-    provider: ModelProvider;
-    health: ProviderHealthStatus;
-  } | undefined> {
-    for (const id of ['ollama', 'lmstudio', 'llamacpp', 'vllm']) {
-      const p = this.providers.get(id);
-      if (!p || !p.profile.enabled) continue;
-      const health = await p.healthCheck();
-      if (health.healthy) {
-        return { provider: p, health };
-      }
-    }
-    return undefined;
+  public async findHealthyCustomProvider(priorityOrder: string[]) {
+    return this.routeModel(priorityOrder, { local: false });
+  }
+
+  public async findHealthyLocalProvider() {
+    return this.routeModel([], { local: true });
   }
 }

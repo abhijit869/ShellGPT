@@ -5,6 +5,7 @@ import * as crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { z } from 'zod';
 import YAML from 'yaml';
+import { ClaudeConfigCompatibilityEngine, CompatibilityModeSchema } from '../../claude-compat/src/index.ts';
 
 export const ExecutionModeSchema = z.enum(['ask', 'plan', 'edit', 'agent', 'review', 'auto']);
 export type ExecutionMode = z.infer<typeof ExecutionModeSchema>;
@@ -61,6 +62,8 @@ export const ProviderProfileSchema = z.object({
   budgetLimitUsd: z.number().nonnegative().optional(),
   billable: z.boolean().default(true),
   headers: z.record(z.string(), z.string()).optional(),
+  capabilities: z.array(z.string()).default([]),
+  costPerMillion: z.number().nonnegative().optional(),
 });
 export type ProviderProfile = z.infer<typeof ProviderProfileSchema>;
 
@@ -75,6 +78,7 @@ export const AgentConfigEntrySchema = z.object({
 
 export const ShellGPTConfigSchema = z.object({
   configVersion: z.number().int().default(1),
+  compatibility: z.object({ mode: CompatibilityModeSchema.default('native') }).default({ mode: 'native' }),
   general: z
     .object({
       appName: z.string().default('ShellGPT'),
@@ -103,6 +107,8 @@ export const ShellGPTConfigSchema = z.object({
         .default('auto'),
       activeProviderId: z.string().optional(),
       activeModel: z.string().optional(),
+      modelStrategy: z.enum(['priority', 'cost', 'latency']).default('priority'),
+      maxCostPerMillion: z.number().nonnegative().optional(),
       preferCustomApiWhenHealthy: z.boolean().default(true),
       preferAntigravityWhenNoApi: z.boolean().default(true),
       fallbackToCodex: z.boolean().default(true),
@@ -129,6 +135,7 @@ export const ShellGPTConfigSchema = z.object({
     })
     .default({
       explicitAgent: 'auto',
+      modelStrategy: 'priority',
       preferCustomApiWhenHealthy: true,
       preferAntigravityWhenNoApi: true,
       fallbackToCodex: true,
@@ -528,6 +535,8 @@ export class ConfigManager {
     }
     const migrated = this.migrate(raw);
     const parsed = ShellGPTConfigSchema.parse(migrated);
+    const compatibleModel = new ClaudeConfigCompatibilityEngine(this.workspaceDir).activeModel(parsed.compatibility.mode, migrated);
+    if (!parsed.routing.activeModel && compatibleModel) parsed.routing.activeModel = compatibleModel;
     this.applyDefaultProviders(parsed);
     this.config = parsed;
     return this.config;
@@ -666,4 +675,11 @@ export class ConfigManager {
     const yamlStr = YAML.stringify(this.config);
     fs.writeFileSync(this.configPath, yamlStr, 'utf8');
   }
+}
+
+/** Child runtimes must not inherit Node's test-runner IPC serialization protocol. */
+export function runtimeEnvironment(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env = { ...base };
+  delete env.NODE_TEST_CONTEXT;
+  return env;
 }

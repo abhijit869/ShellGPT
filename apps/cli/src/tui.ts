@@ -162,15 +162,15 @@ export class ShellGPTTerminalUI {
   private readonly orchestrator: ShellGPTOrchestrator;
   private theme: ThemePalette;
   private agentStates: {
-    antigravity: 'idle' | 'running' | 'blocked';
-    codex: 'idle' | 'running' | 'blocked';
+    antigravity: 'idle' | 'running' | 'blocked' | 'disabled' | 'unverified';
+    codex: 'idle' | 'running' | 'blocked' | 'disabled' | 'unverified';
     customApi: 'connected' | 'disconnected';
-    mcpServers: 'active' | 'failed';
+    mcpServers: 'active' | 'failed' | 'disconnected';
   } = {
-    antigravity: 'idle',
-    codex: 'idle',
+    antigravity: 'unverified',
+    codex: 'unverified',
     customApi: 'disconnected',
-    mcpServers: 'active',
+    mcpServers: 'disconnected',
   };
 
   constructor(orchestrator: ShellGPTOrchestrator) {
@@ -191,7 +191,10 @@ export class ShellGPTTerminalUI {
 
     this.agentStates.customApi =
       activeRoute.mode === 'MODE_A_CUSTOM_API' ? 'connected' : 'disconnected';
-    this.agentStates.mcpServers = anyMcpFailed ? 'failed' : 'active';
+    const connectedMcp = mcpStatuses.filter(s => s.connected).length;
+    this.agentStates.mcpServers = anyMcpFailed ? 'failed' : connectedMcp > 0 ? 'active' : 'disconnected';
+    if (!cfg.agents.antigravity.enabled) this.agentStates.antigravity = 'disabled';
+    if (!cfg.agents.codex.enabled) this.agentStates.codex = 'disabled';
 
     const t = this.theme;
     const width = Math.max(76, Math.min(110, process.stdout.columns || 90));
@@ -208,7 +211,7 @@ export class ShellGPTTerminalUI {
       hr,
       `${t.headerBg} SHELLGPT — Autonomous AI Coding Environment (v1.0.0) ${t.reset}`,
       ` Workspace: ${t.path}${path.basename(this.orchestrator.workspaceDir) || this.orchestrator.workspaceDir}${t.reset} ${t.muted}|${t.reset} Brain: ${t.accent}${activeRoute.primaryBrain}${t.reset} (${activeRoute.mode}) ${t.muted}|${t.reset} Subagent: ${t.accent}${activeRoute.supportingAgents.join(', ') || 'none'}${t.reset}`,
-      ` Provider : ${t.accent}${cfg.routing.enableAutomaticFallback ? 'Auto fallback' : 'Pinned'}${t.reset} (Model: ${t.accent}${activeRoute.activeModel}${t.reset}) ${t.muted}|${t.reset} MCP: ${this.formatState(anyMcpFailed ? 'failed' : 'Connected')}`,
+      ` Provider : ${t.accent}${cfg.routing.enableAutomaticFallback ? 'Auto fallback' : 'Pinned'}${t.reset} (Model: ${t.accent}${activeRoute.activeModel}${t.reset}) ${t.muted}|${t.reset} MCP: ${connectedMcp} connected${anyMcpFailed ? ' (errors)' : ''}`,
       hr,
     ].join('\n');
 

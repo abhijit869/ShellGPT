@@ -4,11 +4,10 @@ import * as crypto from 'node:crypto';
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { StreamableHTTPClientTransport, SSEClientTransport } from '@modelcontextprotocol/client';
-import AjvModule from 'ajv';
+import { Ajv } from 'ajv';
 import { sanitizeUntrustedContent, type PermissionEngine } from '@shellgpt/permissions';
 import type { TelemetryManager } from '@shellgpt/telemetry';
 
-const Ajv = (AjvModule as unknown as { default?: typeof AjvModule }).default || AjvModule;
 
 export type McpTransportType = 'stdio' | 'streamable-http' | 'sse';
 
@@ -245,6 +244,7 @@ export class McpManager {
         }
       }
       Object.assign(safeEnv, config.env || {});
+      delete safeEnv.NODE_TEST_CONTEXT;
 
       transport = new StdioClientTransport({
         command: config.command,

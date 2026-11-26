@@ -386,6 +386,7 @@ export class CodingToolkit {
     const startTime = Date.now();
 
     const cleanEnv = { ...process.env };
+    delete cleanEnv.NODE_TEST_CONTEXT;
     delete cleanEnv.SHELLGPT_API_KEY;
 
     return new Promise<CommandExecutionResult>((resolve) => {
@@ -921,14 +922,14 @@ export class CodingToolkit {
         output: out,
         durationMs: res.durationMs,
       });
-      if (stepName === 'test' && this.memory && options.sessionId) {
+      if (this.memory && options.sessionId) {
         this.memory.recordTestResult({
           sessionId: options.sessionId,
           taskId: options.taskId,
           command: cmd,
           passed,
           exitCode: res.exitCode,
-          output: out,
+          output: `[${stepName.toUpperCase()}] ${out}`,
           durationMs: res.durationMs,
         });
       }

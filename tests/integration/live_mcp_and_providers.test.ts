@@ -50,7 +50,7 @@ describe('Phase 4, 5 & 6 Integration: Live REA MCP Server, Provider Gateway HTTP
     }
   });
 
-  it('executes MODE A (Custom API / Asemprotic Controller) against a real HTTP server and delegates tasks', async () => {
+  it('executes MODE A against a deterministic local JSON HTTP fixture', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'shellgpt-modea-int-'));
 
     // Spin up a real local OpenAI-compatible HTTP endpoint representing Asemprotic / Custom API
@@ -113,6 +113,8 @@ describe('Phase 4, 5 & 6 Integration: Live REA MCP Server, Provider Gateway HTTP
       process.env.ASEMPROTIC_API_FORMAT = 'openai';
 
       const orch = new ShellGPTOrchestrator(tmpDir);
+      orch.configManager.get().routing.activeProviderId = 'asemprotic';
+      orch.providers.getProvider('asemprotic')!.profile.streaming = false;
       const route = await orch.resolveRoute();
 
       assert.equal(route.mode, 'MODE_A_CUSTOM_API');

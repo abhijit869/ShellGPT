@@ -1,3 +1,4 @@
+import { runtimeEnvironment } from '@shellgpt/config';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -14,6 +15,19 @@ import type {
   AgentError,
   TaskArtifact,
 } from '@shellgpt/agents';
+
+export interface CodexTaskParameters {
+    taskId?: string;
+    threadId?: string;
+    prompt: string;
+    systemInstructions?: string;
+    model?: string;
+    readOnly?: boolean;
+    allowDelegationToAntigravity?: boolean;
+    onStreamEvent?: (event: { type: string; raw: unknown }) => void;
+    signal?: AbortSignal;
+
+}
 
 export interface CodexDelegationRequest {
   targetAgent: 'antigravity' | string;
@@ -316,6 +330,7 @@ export class CodexAdapter implements AgentRuntime {
       } else {
         try {
           const found = execFileSync('which', [c], {
+            env: runtimeEnvironment(),
             encoding: 'utf8',
             stdio: ['ignore', 'pipe', 'ignore'],
           }).trim();
@@ -360,6 +375,7 @@ export class CodexAdapter implements AgentRuntime {
     let version = 'unknown';
     try {
       version = execFileSync(info.binaryPath!, ['--version'], {
+        env: runtimeEnvironment(),
         encoding: 'utf8',
         timeout: 5000,
         stdio: ['ignore', 'pipe', 'ignore'],
@@ -371,6 +387,7 @@ export class CodexAdapter implements AgentRuntime {
     let authenticated = Boolean(process.env.OPENAI_API_KEY);
     try {
       const loginOut = execFileSync(info.binaryPath!, ['login', 'status'], {
+        env: runtimeEnvironment(),
         encoding: 'utf8',
         timeout: 5000,
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -424,17 +441,14 @@ export class CodexAdapter implements AgentRuntime {
   /**
    * Executes a task on OpenAI Codex via official `codex exec --json --output-schema ... --output-last-message ...`
    */
-  public async executeTask(params: {
-    taskId?: string;
-    threadId?: string;
-    prompt: string;
-    systemInstructions?: string;
-    model?: string;
-    readOnly?: boolean;
-    allowDelegationToAntigravity?: boolean;
-    onStreamEvent?: (event: { type: string; raw: unknown }) => void;
-    signal?: AbortSignal;
-  }): Promise<CodexExecutionResult> {
+  public executeTask(task: AgentTask): Promise<AgentResult>;
+  public executeTask(params: CodexTaskParameters): Promise<CodexExecutionResult>;
+  public executeTask(params: AgentTask | CodexTaskParameters): Promise<AgentResult | CodexExecutionResult> {
+    if ('sessionId' in params) return this.streamTask(params, () => {});
+    return this.executeLegacyTask(params);
+  }
+
+  private async executeLegacyTask(params: CodexTaskParameters): Promise<CodexExecutionResult> {
     const taskId = params.taskId || `codex_${crypto.randomUUID().slice(0, 8)}`;
     const model = params.model || this.defaultModel;
     const info = this.inspectBinary();
@@ -509,7 +523,7 @@ export class CodexAdapter implements AgentRuntime {
       '-',
     ];
 
-    const env = { ...process.env };
+    const env = runtimeEnvironment();
     delete env.ANTHROPIC_BASE_URL;
     delete env.ANTHROPIC_AUTH_TOKEN;
     delete env.SHELLGPT_API_KEY;
@@ -778,7 +792,7 @@ export class CodexAdapter implements AgentRuntime {
       timestamp: now(),
     });
 
-    const rawRes = await this.executeTask({
+    const rawRes = await this.executeLegacyTask({
       taskId: task.taskId,
       threadId: task.sessionId,
       prompt: task.prompt,

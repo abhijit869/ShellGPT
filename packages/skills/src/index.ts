@@ -1,3 +1,4 @@
+import { ClaudeConfigCompatibilityEngine, type CompatibilityMode } from '../../claude-compat/src/index.ts';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -90,9 +91,11 @@ export const NATIVE_SKILL_CATALOG: Array<{
 export class SkillManager {
   private readonly workspaceDir: string;
   private readonly bundledSkillsDir: string;
+  private readonly compatibilityMode: CompatibilityMode;
   private readonly skills = new Map<string, SkillDefinition>();
 
-  constructor(workspaceDir: string = process.cwd()) {
+  constructor(workspaceDir: string = process.cwd(), compatibilityMode: CompatibilityMode = 'native') {
+    this.compatibilityMode = compatibilityMode;
     this.workspaceDir = path.resolve(workspaceDir);
     this.bundledSkillsDir = path.join(this.workspaceDir, 'skills');
     this.ensureBundledSkillsOnDisk();
@@ -166,10 +169,19 @@ export class SkillManager {
         namespace: 'ecosystem',
       },
       { dir: path.join(os.homedir(), '.gemini', 'config', 'skills'), namespace: 'global' },
+      { dir: path.join(os.homedir(), '.shellgpt', 'skills'), namespace: 'global' },
       { dir: this.bundledSkillsDir, namespace: 'bundled' },
       { dir: path.join(this.workspaceDir, '.agents', 'skills'), namespace: 'workspace' },
       { dir: path.join(this.workspaceDir, '.shellgpt', 'skills'), namespace: 'workspace' },
     ];
+
+    if (this.compatibilityMode === 'claude-compatible' || this.compatibilityMode === 'hybrid') {
+      for (const entry of new ClaudeConfigCompatibilityEngine(this.workspaceDir).inventory({ global: true })) {
+        if (entry.kind !== 'skills' || entry.status !== 'compatible') continue;
+        const skill = this.parseSkillFile(entry.source, entry.scope === 'user' ? 'global' : 'workspace');
+        if (skill) this.skills.set(skill.name, skill);
+      }
+    }
 
     for (const root of searchRoots) {
       if (!fs.existsSync(root.dir) || !fs.statSync(root.dir).isDirectory()) continue;

@@ -1,0 +1,20 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { ShellGPTOrchestrator } from '@shellgpt/core';
+import { ShellGPTTerminalUI } from '../../apps/cli/src/tui.ts';
+test('dashboard shows real MCP connection count and disabled agents', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'shellgpt-dashboard-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const orch = new ShellGPTOrchestrator(root);
+  orch.configManager.get().agents.antigravity.enabled = false;
+  orch.configManager.get().agents.codex.enabled = false;
+  const frame = (await new ShellGPTTerminalUI(orch).renderDashboardFrame({ mode: 'SETUP_REQUIRED', primaryBrain: 'none', activeModel: 'none', supportingAgents: [], priorityTierUsed: 7, reason: 'fixture' })).replace(/\x1b\[[0-9;]*m/g, '');
+  assert.match(frame, /MCP: 0 connected/);
+  assert.match(frame, /Antigravity : disabled/);
+  assert.match(frame, /OpenAI Codex: disabled/);
+  assert.match(frame, /MCP Servers : disconnected/);
+  await orch.mcp.disconnectAll();
+});

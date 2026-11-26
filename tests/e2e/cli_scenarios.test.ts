@@ -6,6 +6,7 @@ import * as os from 'node:os';
 import * as http from 'node:http';
 import { runCli } from '../../apps/cli/src/index.ts';
 import { ShellGPTOrchestrator } from '@shellgpt/core';
+import { ConfigManager } from '@shellgpt/config';
 
 describe('Phase 7 & 8 E2E: CLI Commands, Real Execution Scenarios A-E, Cancellation, and Cross-Platform Checks', () => {
   it('supports CLI startup, init, version, help, agent switching, session management, and REA commands', async () => {
@@ -50,7 +51,15 @@ describe('Phase 7 & 8 E2E: CLI Commands, Real Execution Scenarios A-E, Cancellat
       assert.equal(reaEngines.exitCode, 0);
       assert.match(reaEngines.stdout, /javascript-babel-ast/);
 
-      // 5. Headless execution with --json output
+      // This CLI/session test must not submit prompts to host-authenticated runtimes.
+      const config = new ConfigManager(tmpDir);
+      config.get().agents.antigravity.enabled = false;
+      config.get().agents.codex.enabled = false;
+      config.get().agents.customLlm.enabled = false;
+      config.get().routing.allowLocalModelRecovery = false;
+      config.save();
+
+      // 5. Headless setup diagnostics with --json output
       const headless = await runCli(
         ['exec', 'Inspect the repository status', '--json'],
         { workspaceDir: tmpDir },

@@ -274,8 +274,8 @@ export class ShellGPTOrchestrator extends EventEmitter {
       defaultModel: cfg.agents.claude.defaultModel,
     });
 
-    this.instructions = new InstructionBridge(workspaceDir);
-    this.skills = new SkillManager(workspaceDir);
+    this.instructions = new InstructionBridge(workspaceDir, '', cfg.compatibility.mode);
+    this.skills = new SkillManager(workspaceDir, cfg.compatibility.mode);
     this.hooks = new HookEngine(workspaceDir, true);
     this.plugins = new PluginManager(workspaceDir, cfg.plugins);
     this.plugins.ingestActivePlugins({
@@ -288,6 +288,9 @@ export class ShellGPTOrchestrator extends EventEmitter {
       maxConcurrency: cfg.orchestration.maxParallelWorkers,
       useGitWorktrees: cfg.orchestration.gitWorktreeIsolation,
       toolkit: this.toolkit,
+      onTaskSkipped: (task, reason) => {
+        this.memory.transitionTaskState(task.task_id, 'CANCELLED', reason);
+      },
     });
     this.delegationSafety = new DelegationSafetyGuard({
       maxDepth: 3,
@@ -706,10 +709,10 @@ export class ShellGPTOrchestrator extends EventEmitter {
     ]);
 
     const supportingAgents: string[] = [];
-    if (agyStatus.installed && cfg.agents.antigravity.subagentCapable) {
+    if (cfg.agents.antigravity.enabled && agyStatus.installed && agyStatus.authenticated && cfg.agents.antigravity.subagentCapable) {
       supportingAgents.push('antigravity');
     }
-    if (codexStatus.installed && cfg.agents.codex.subagentCapable) {
+    if (cfg.agents.codex.enabled && codexStatus.installed && codexStatus.authenticated && cfg.agents.codex.subagentCapable) {
       supportingAgents.push('codex');
     }
 
@@ -751,35 +754,24 @@ export class ShellGPTOrchestrator extends EventEmitter {
       }
 
       if (requestedChoice === 'custom') {
-        const activeId = cfg.routing.activeProviderId || 'asemprotic';
-        const prov = this.providers.getProvider(activeId);
-        if (prov) {
-          const health = await prov.healthCheck();
-          if (health.healthy && health.authenticated) {
-            return {
-              mode: 'MODE_A_CUSTOM_API',
-              primaryBrain: `custom-api:${prov.id}`,
-              activeModel:
-                options.taskOverrideModel ||
-                cfg.routing.activeModel ||
-                prov.profile.defaultModel ||
-                'default',
-              supportingAgents,
-              priorityTierUsed: tierForExplicit,
-              reason: `Explicitly selected custom API controller "${prov.id}" (${health.diagnostic}).`,
-            };
-          }
-        }
+        const hit = await this.providers.routeModel(cfg.routing.providerPriority, {
+          providerId: cfg.routing.activeProviderId || 'asemprotic', local: false,
+          model: options.taskOverrideModel || cfg.routing.activeModel,
+          strategy: cfg.routing.modelStrategy, maxCostPerMillion: cfg.routing.maxCostPerMillion,
+          excludeProviders: this.providers.listProviders().filter(p => this.isCircuitOpen(`custom-api:${p.id}`)).map(p => p.id),
+        });
+        if (hit) return {
+          mode: 'MODE_A_CUSTOM_API', primaryBrain: `custom-api:${hit.provider.id}`, activeModel: hit.model,
+          supportingAgents, priorityTierUsed: tierForExplicit, reason: `Explicitly selected verified model ${hit.model} on ${hit.provider.id}.`,
+        };
       }
 
       if (requestedChoice === 'local') {
-        const localHit = await this.providers.findHealthyLocalProvider();
+        const localHit = await this.providers.routeModel(cfg.routing.providerPriority, { local: true, model: options.taskOverrideModel || cfg.routing.activeModel });
         if (localHit) {
           const model =
             options.taskOverrideModel ||
-            localHit.health.availableModels[0] ||
-            localHit.provider.profile.defaultModel ||
-            'local-model';
+            localHit.model;
           return {
             mode: 'MODE_D_LOCAL_RECOVERY',
             primaryBrain: `local:${localHit.provider.id}`,
@@ -794,50 +786,28 @@ export class ShellGPTOrchestrator extends EventEmitter {
       }
     }
 
-    // Tier 3: Configured primary API provider (MODE A)
-    if (cfg.routing.preferCustomApiWhenHealthy && cfg.agents.customLlm.enabled) {
-      if (cfg.routing.activeProviderId) {
-        const pinned = this.providers.getProvider(cfg.routing.activeProviderId);
-        if (pinned && !this.isCircuitOpen(`custom-api:${pinned.id}`)) {
-          const h = await pinned.healthCheck();
-          if (h.healthy && h.authenticated) {
-            return {
-              mode: 'MODE_A_CUSTOM_API',
-              primaryBrain: `custom-api:${pinned.id}`,
-              activeModel:
-                options.taskOverrideModel ||
-                cfg.routing.activeModel ||
-                pinned.profile.defaultModel ||
-                'default',
-              supportingAgents,
-              priorityTierUsed: 3,
-              reason: `Configured primary API provider "${pinned.id}" is healthy and authenticated.`,
-            };
-          }
-        }
-      }
+    if (requestedChoice === 'custom' || requestedChoice === 'local') return {
+      mode: 'SETUP_REQUIRED', primaryBrain: 'none', activeModel: 'none', supportingAgents,
+      priorityTierUsed: tierForExplicit, reason: `The explicitly selected ${requestedChoice} provider/model is unavailable or does not meet the routing policy; the manual selection was preserved.`,
+      setupInstructions: ['Check provider health, model catalog, billing policy and configured model name.'],
+    };
 
-      const healthyCustom = await this.providers.findHealthyCustomProvider(
-        cfg.routing.providerPriority,
-      );
-      if (
-        healthyCustom &&
-        !this.isCircuitOpen(`custom-api:${healthyCustom.provider.id}`) &&
-        (!healthyCustom.provider.profile.billable || cfg.routing.allowBillableFallback || Boolean(this.configManager.secrets.getSecret(healthyCustom.provider.profile.apiKeyEnv || '')))
-      ) {
-        return {
-          mode: 'MODE_A_CUSTOM_API',
-          primaryBrain: `custom-api:${healthyCustom.provider.id}`,
-          activeModel:
-            options.taskOverrideModel ||
-            cfg.routing.activeModel ||
-            healthyCustom.provider.profile.defaultModel ||
-            'default',
-          supportingAgents,
-          priorityTierUsed: 3,
-          reason: `Primary API controller "${healthyCustom.provider.id}" selected via routing priority.`,
-        };
-      }
+    // Tier 3: provider-neutral model selection with explicit billing authorization.
+    if (cfg.routing.preferCustomApiWhenHealthy && cfg.agents.customLlm.enabled) {
+      const excludeProviders = this.providers.listProviders().filter(p => this.isCircuitOpen(`custom-api:${p.id}`)).map(p => p.id);
+      const modelRequest = {
+        model: options.taskOverrideModel || cfg.routing.activeModel,
+        strategy: cfg.routing.modelStrategy, maxCostPerMillion: cfg.routing.maxCostPerMillion,
+        excludeProviders, local: false,
+      };
+      let hit = cfg.routing.activeProviderId ? await this.providers.routeModel(cfg.routing.providerPriority, { ...modelRequest, providerId: cfg.routing.activeProviderId }) : undefined;
+      if (!hit && cfg.routing.enableAutomaticFallback) hit = await this.providers.routeModel(cfg.routing.providerPriority, {
+        ...modelRequest, allowBillableFallback: cfg.routing.allowBillableFallback,
+      });
+      if (hit) return {
+        mode: 'MODE_A_CUSTOM_API', primaryBrain: `custom-api:${hit.provider.id}`, activeModel: hit.model,
+        supportingAgents, priorityTierUsed: 3, reason: `Selected verified model catalog entry ${hit.model} from authorized provider ${hit.provider.id}.`,
+      };
     }
 
     // Tier 4: Configured preferred primary CLI agent (MODE B — Antigravity Primary Brain)
@@ -886,13 +856,11 @@ export class ShellGPTOrchestrator extends EventEmitter {
 
     // Tier 6: Local Model Recovery (MODE D)
     if (cfg.routing.allowLocalModelRecovery) {
-      const localHit = await this.providers.findHealthyLocalProvider();
+      const localHit = await this.providers.routeModel(cfg.routing.providerPriority, { local: true, model: options.taskOverrideModel || cfg.routing.activeModel });
       if (localHit && !this.isCircuitOpen(`local:${localHit.provider.id}`)) {
         const model =
           options.taskOverrideModel ||
-          localHit.health.availableModels[0] ||
-          localHit.provider.profile.defaultModel ||
-          'local-model';
+          localHit.model;
         return {
           mode: 'MODE_D_LOCAL_RECOVERY',
           primaryBrain: `local:${localHit.provider.id}`,
@@ -1101,6 +1069,7 @@ export class ShellGPTOrchestrator extends EventEmitter {
           taskId: envelope.task_id,
           prompt: `${envelope.objective}\n\nScope: ${envelope.scope}\n\nContext:\n${envelope.context_refs.join('\n')}`,
           systemInstructions: envelope.instructions,
+          readOnly: envelope.read_only,
           signal,
         });
         if (res.status !== 'completed') {
@@ -1711,6 +1680,7 @@ export class ShellGPTOrchestrator extends EventEmitter {
           prompt: params.prompt,
           systemInstructions: params.instructions,
           model: route.activeModel,
+          readOnly: params.readOnly,
           allowDelegationToCodex: route.supportingAgents.includes('codex'),
           signal: params.signal,
         });
@@ -2019,14 +1989,20 @@ export class ShellGPTOrchestrator extends EventEmitter {
               actor: route.primaryBrain,
             });
             toolResultData = res;
-          } else if (tc.name === 'write_file' && !params.readOnly) {
+          } else if (tc.name === 'write_file') {
+            if (params.readOnly) {
+              throw new Error(`Tool "write_file" is prohibited in read-only mode.`);
+            }
             const res = await this.toolkit.writeFile(
               String(tc.arguments.path || ''),
               String(tc.arguments.content || ''),
               { actor: route.primaryBrain, sessionId: params.sessionId },
             );
             toolResultData = res;
-          } else if (tc.name === 'edit_file' && !params.readOnly) {
+          } else if (tc.name === 'edit_file') {
+            if (params.readOnly) {
+              throw new Error(`Tool "edit_file" is prohibited in read-only mode.`);
+            }
             const res = await this.toolkit.editFile(
               String(tc.arguments.path || ''),
               String(tc.arguments.target || ''),
@@ -2047,7 +2023,10 @@ export class ShellGPTOrchestrator extends EventEmitter {
                   : undefined,
               },
             );
-          } else if (tc.name === 'run_command' && !params.readOnly) {
+          } else if (tc.name === 'run_command') {
+            if (params.readOnly) {
+              throw new Error(`Tool "run_command" is prohibited in read-only mode.`);
+            }
             toolResultData = await this.toolkit.runCommand(
               String(tc.arguments.command || ''),
               { actor: route.primaryBrain, signal: params.signal },
@@ -2106,15 +2085,27 @@ export class ShellGPTOrchestrator extends EventEmitter {
             toolOutput: toolResultData,
           });
         } catch (toolErr) {
+          const errMsg = (toolErr as Error).message || String(toolErr);
           this.memory.recordToolEvent({
             sessionId: params.sessionId,
             taskId: params.requestId,
             toolName: tc.name,
             args: tc.arguments,
-            result: { error: (toolErr as Error).message },
+            result: { error: errMsg },
             status: 'error',
             durationMs: Date.now() - toolStart,
           });
+          this.emitAgentEvent({
+            type: 'agent.tool.completed',
+            taskId: params.requestId || 'turn',
+            sessionId: params.sessionId,
+            agentId: route.primaryBrain,
+            timestamp: new Date().toISOString(),
+            toolName: tc.name,
+            toolArgs: tc.arguments,
+            toolOutput: { error: errMsg },
+          });
+          toolOutputsSummary.push(`[${tc.name} Error]: ${errMsg}`);
         }
       }
 

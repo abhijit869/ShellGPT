@@ -25,7 +25,8 @@
     "test:python": "python3 -m unittest discover -s tests -v",
     "test:all": "npm run test && npm run test:python",
     "doctor": "node --no-warnings ./apps/cli/src/index.ts doctor",
-    "build": "node --no-warnings ./scripts/build.ts"
+    "build": "node --no-warnings ./scripts/build.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@clack/prompts": "1.7.0",
@@ -44,5 +45,9 @@
     "write-file-atomic": "7.0.0",
     "yaml": "2.9.0",
     "zod": "4.6.6"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
   }
 }

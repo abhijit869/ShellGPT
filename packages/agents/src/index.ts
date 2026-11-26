@@ -1,7 +1,10 @@
+import { ClaudeConfigCompatibilityEngine, safeRead, type CompatibilityMode } from '../../claude-compat/src/index.ts';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
-import { sanitizeUntrustedContent, type PermissionMode } from '@shellgpt/permissions';
+import * as os from 'node:os';
+import { sanitizeUntrustedContent } from '@shellgpt/permissions';
+import type { PermissionMode } from '@shellgpt/config';
 import type { CodingToolkit } from '@shellgpt/tools';
 
 /**
@@ -588,10 +591,12 @@ const MAX_RULE_FILE_BYTES = 24000;
 export class InstructionBridge {
   private readonly workspaceDir: string;
   private globalInstructions: string;
+  private compatibilityMode: CompatibilityMode;
 
-  constructor(workspaceDir: string = process.cwd(), globalInstructions = '') {
+  constructor(workspaceDir: string = process.cwd(), globalInstructions = '', compatibilityMode: CompatibilityMode = 'claude-compatible') {
     this.workspaceDir = path.resolve(workspaceDir);
     this.globalInstructions = globalInstructions;
+    this.compatibilityMode = compatibilityMode;
   }
 
   public setGlobalInstructions(text: string): void {
@@ -603,7 +608,8 @@ export class InstructionBridge {
     if (!fs.existsSync(fullPath) || !fs.statSync(fullPath).isFile()) {
       return undefined;
     }
-    const raw = fs.readFileSync(fullPath, 'utf8');
+    let raw: string;
+    try { raw = safeRead(this.workspaceDir, relPath); } catch { return undefined; }
     if (Buffer.byteLength(raw, 'utf8') <= MAX_RULE_FILE_BYTES) {
       return { content: raw.trim(), truncated: false, fullPath };
     }
@@ -632,10 +638,24 @@ export class InstructionBridge {
     const candidateFiles: Array<{ label: string; relPath: string; precedence: number }> = [
       { label: '.shellgpt/instructions.md', relPath: '.shellgpt/instructions.md', precedence: 2 },
       { label: 'AGENTS.md', relPath: 'AGENTS.md', precedence: 3 },
-      { label: 'CLAUDE.md', relPath: 'CLAUDE.md', precedence: 4 },
-      { label: '.claude/instructions.md', relPath: '.claude/instructions.md', precedence: 4 },
+
       { label: 'GEMINI.md', relPath: 'GEMINI.md', precedence: 5 },
     ];
+
+    if (this.compatibilityMode === 'claude-compatible' || this.compatibilityMode === 'hybrid') {
+      for (const entry of new ClaudeConfigCompatibilityEngine(this.workspaceDir).inventory({ global: true })) {
+        if (entry.status === 'compatible' && ['instructions', 'rules'].includes(entry.kind)) {
+          if (entry.scope === 'user') sources.push({ source: entry.source, filePath: entry.source, precedence: 6, content: entry.text ?? '', truncated: false });
+          else candidateFiles.push({ label: entry.relativePath, relPath: entry.relativePath, precedence: 4 });
+        }
+      }
+    }
+    const nativeRules = path.join(this.workspaceDir, '.shellgpt', 'rules');
+    if (fs.existsSync(nativeRules) && !fs.lstatSync(nativeRules).isSymbolicLink()) {
+      for (const file of fs.readdirSync(nativeRules).sort()) {
+        if (file.endsWith('.md')) candidateFiles.push({ label: `.shellgpt/rules/${file}`, relPath: `.shellgpt/rules/${file}`, precedence: 2 });
+      }
+    }
 
     // Also discover .agents/rules/*.md
     const agentsRulesDir = path.join(this.workspaceDir, '.agents', 'rules');
@@ -674,6 +694,14 @@ export class InstructionBridge {
         truncated: false,
       });
     }
+
+    const globalRules = path.join(os.homedir(), '.shellgpt', 'rules');
+    if (fs.existsSync(globalRules) && !fs.lstatSync(globalRules).isSymbolicLink()) {
+      for (const file of fs.readdirSync(globalRules).sort().filter(f => f.endsWith('.md'))) {
+        try { sources.push({ source: path.join(globalRules, file), precedence: 6, content: safeRead(os.homedir(), `.shellgpt/rules/${file}`), truncated: false }); } catch { /* unsafe native rule */ }
+      }
+    }
+    sources.sort((a, b) => a.precedence - b.precedence);
 
     // Detect and resolve conflicting directives across precedence tiers
     const conflictsResolved: string[] = [];
@@ -800,16 +828,19 @@ export class ParallelTaskScheduler {
   private readonly maxConcurrency: number;
   private readonly useGitWorktrees: boolean;
   private readonly toolkit?: CodingToolkit;
+  private readonly onTaskSkipped?: (task: CanonicalTaskEnvelope, reason: string) => void;
   private readonly activeFileLocks = new Map<string, string>(); // normalized path -> task_id
 
   constructor(options: {
     maxConcurrency?: number;
     useGitWorktrees?: boolean;
     toolkit?: CodingToolkit;
+    onTaskSkipped?: (task: CanonicalTaskEnvelope, reason: string) => void;
   } = {}) {
     this.maxConcurrency = Math.max(1, options.maxConcurrency ?? 3);
     this.useGitWorktrees = options.useGitWorktrees ?? true;
     this.toolkit = options.toolkit;
+    this.onTaskSkipped = options.onTaskSkipped;
   }
 
   /**
@@ -957,6 +988,7 @@ export class ParallelTaskScheduler {
             validation_outputs: [],
             duration_ms: 0,
           });
+          this.onTaskSkipped?.(task, 'Skipped because a prerequisite dependency task failed.');
           continue;
         }
 

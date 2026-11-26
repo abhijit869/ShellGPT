@@ -1,3 +1,4 @@
+import { runtimeEnvironment } from '@shellgpt/config';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawn } from 'node:child_process';
@@ -231,6 +232,7 @@ export class HookEngine {
     return new Promise<HookExecutionResult>((resolve) => {
       const child = spawn(shellBin, shellArgs, {
         cwd: baseDir,
+        env: runtimeEnvironment(),
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
@@ -250,6 +252,10 @@ export class HookEngine {
         stderr += chunk.toString('utf8');
       });
 
+      // Hooks that do not consume stdin may exit before the payload is flushed.
+      child.stdin.on('error', (error: NodeJS.ErrnoException) => {
+        if (error.code !== 'EPIPE') stderr += `Hook stdin error: ${error.message}`;
+      });
       child.stdin.write(JSON.stringify(payload) + '\n');
       child.stdin.end();
 

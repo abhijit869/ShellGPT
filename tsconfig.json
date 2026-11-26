@@ -3,7 +3,9 @@
     "target": "ES2024",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2024"],
+    "lib": [
+      "ES2024"
+    ],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -11,25 +13,66 @@
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
-      "@shellgpt/config": ["packages/config/src/index.ts"],
-      "@shellgpt/telemetry": ["packages/telemetry/src/index.ts"],
-      "@shellgpt/permissions": ["packages/permissions/src/index.ts"],
-      "@shellgpt/memory": ["packages/memory/src/index.ts"],
-      "@shellgpt/tools": ["packages/tools/src/index.ts"],
-      "@shellgpt/mcp": ["packages/mcp/src/index.ts"],
-      "@shellgpt/rea": ["packages/rea/src/index.ts"],
-      "@shellgpt/providers": ["packages/providers/src/index.ts"],
-      "@shellgpt/adapters-antigravity": ["packages/adapters-antigravity/src/index.ts"],
-      "@shellgpt/adapters-codex": ["packages/adapters-codex/src/index.ts"],
-      "@shellgpt/adapters-claude": ["packages/adapters-claude/src/index.ts"],
-      "@shellgpt/agents": ["packages/agents/src/index.ts"],
-      "@shellgpt/skills": ["packages/skills/src/index.ts"],
-      "@shellgpt/hooks": ["packages/hooks/src/index.ts"],
-      "@shellgpt/plugins": ["packages/plugins/src/index.ts"],
-      "@shellgpt/core": ["packages/core/src/index.ts"]
-    }
+      "@shellgpt/config": [
+        "./packages/config/src/index.ts"
+      ],
+      "@shellgpt/telemetry": [
+        "./packages/telemetry/src/index.ts"
+      ],
+      "@shellgpt/permissions": [
+        "./packages/permissions/src/index.ts"
+      ],
+      "@shellgpt/memory": [
+        "./packages/memory/src/index.ts"
+      ],
+      "@shellgpt/tools": [
+        "./packages/tools/src/index.ts"
+      ],
+      "@shellgpt/mcp": [
+        "./packages/mcp/src/index.ts"
+      ],
+      "@shellgpt/rea": [
+        "./packages/rea/src/index.ts"
+      ],
+      "@shellgpt/providers": [
+        "./packages/providers/src/index.ts"
+      ],
+      "@shellgpt/adapters-antigravity": [
+        "./packages/adapters-antigravity/src/index.ts"
+      ],
+      "@shellgpt/adapters-codex": [
+        "./packages/adapters-codex/src/index.ts"
+      ],
+      "@shellgpt/adapters-claude": [
+        "./packages/adapters-claude/src/index.ts"
+      ],
+      "@shellgpt/agents": [
+        "./packages/agents/src/index.ts"
+      ],
+      "@shellgpt/skills": [
+        "./packages/skills/src/index.ts"
+      ],
+      "@shellgpt/hooks": [
+        "./packages/hooks/src/index.ts"
+      ],
+      "@shellgpt/plugins": [
+        "./packages/plugins/src/index.ts"
+      ],
+      "@shellgpt/core": [
+        "./packages/core/src/index.ts"
+      ],
+      "@shellgpt/claude-compat": [
+        "./packages/claude-compat/src/index.ts"
+      ],
+      "@shellgpt/router": [
+        "./packages/router/src/index.ts"
+      ]
+    },
+    "types": [
+      "node"
+    ],
+    "erasableSyntaxOnly": true
   },
   "include": [
     "apps/**/*",

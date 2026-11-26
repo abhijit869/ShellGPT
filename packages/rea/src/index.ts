@@ -1,3 +1,4 @@
+import { runtimeEnvironment } from '@shellgpt/config';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -77,6 +78,7 @@ export class ReaIntegration {
     for (const bin of candidates) {
       try {
         const version = execFileSync(bin, ['--version'], {
+          env: runtimeEnvironment(),
           encoding: 'utf8',
           timeout: 5000,
           stdio: ['ignore', 'pipe', 'ignore'],
@@ -100,6 +102,7 @@ export class ReaIntegration {
     const checkBin = (bin: string): string | undefined => {
       try {
         return execFileSync('which', [bin], {
+          env: runtimeEnvironment(),
           encoding: 'utf8',
           stdio: ['ignore', 'pipe', 'ignore'],
         }).trim();
@@ -205,6 +208,7 @@ export class ReaIntegration {
 
     try {
       const out = execFileSync(det.binaryPath, ['mcp', 'doctor', '--json'], {
+        env: runtimeEnvironment(),
         encoding: 'utf8',
         timeout: 20000,
         stdio: ['ignore', 'pipe', 'pipe'],

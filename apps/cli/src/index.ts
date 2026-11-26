@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ClaudeConfigCompatibilityEngine, CompatibilityModeSchema, type EntryKind } from '../../../packages/claude-compat/src/index.ts';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
@@ -87,6 +88,9 @@ DEVELOPMENT COMMANDS:
   shellgpt undo [checkpointId]   Restore files from the most recent checkpoint
 
 MANAGEMENT COMMANDS:
+  shellgpt import claude [--dry-run] [--project|--global] [--settings|--skills|--agents|--commands|--mcp]
+  shellgpt config sources|inspect|validate|effective [--compat native|claude-compatible|hybrid|migration]
+  shellgpt config explain <key>  Explain compatible settings provenance
   shellgpt config                Show validated workspace configuration
   shellgpt skills                List discovered workspace, bundled, and ecosystem skills
   shellgpt plugins               List discovered plugins
@@ -141,6 +145,35 @@ export async function runCli(
     } else {
       positional.push(a);
     }
+  }
+
+  // Configuration inspection/import must not create sessions, discover runtimes or run hooks.
+  const earlyCommand = positional[0];
+  if (earlyCommand === 'import' || (earlyCommand === 'config' && positional[1])) {
+    try {
+      const engine = new ClaudeConfigCompatibilityEngine(workspaceDir);
+      if (earlyCommand === 'import') {
+        if (positional[1] !== 'claude') throw new Error('Usage: shellgpt import claude [--dry-run] [--project|--global] [--skills|--settings|--agents|--commands|--mcp]');
+        const flags = positional.slice(2);
+        const valid = ['--dry-run', '--project', '--global', '--skills', '--agents', '--mcp', '--commands', '--settings'];
+        if (flags.some(f => !valid.includes(f)) || (flags.includes('--project') && flags.includes('--global'))) throw new Error('Invalid or conflicting import flags.');
+        const kinds = flags.filter(f => !['--dry-run', '--project', '--global'].includes(f)).map(f => f.slice(2)) as EntryKind[];
+        const result = engine.import({ dryRun: flags.includes('--dry-run'), global: flags.includes('--global'), kinds });
+        return { exitCode: result.operations.some(o => o.status === 'conflict') || result.diagnostics.length ? 1 : 0, stdout: JSON.stringify(result, null, 2) };
+      }
+      const action = positional[1];
+      if (!['sources', 'inspect', 'validate', 'effective', 'explain'].includes(action)) throw new Error('Unknown config action. Use sources, inspect, validate, effective or explain <key>.');
+      const modeIndex = positional.indexOf('--compat');
+      const mode = modeIndex >= 0 ? CompatibilityModeSchema.parse(positional[modeIndex + 1]) : undefined;
+      const resolved = engine.resolve({ mode });
+      const value = action === 'sources' ? resolved.sources.map(({ path, scope }) => ({ path, scope }))
+        : action === 'effective' ? { mode: resolved.mode, effective: resolved.effective, diagnostics: resolved.diagnostics }
+        : action === 'validate' ? { valid: resolved.diagnostics.length === 0, diagnostics: resolved.diagnostics }
+        : action === 'explain' ? { key: positional[2], value: resolved.effective[positional[2]], history: resolved.provenance[positional[2]] ?? [], diagnostics: resolved.diagnostics }
+        : { mode: resolved.mode, sources: resolved.sources, effective: resolved.effective, diagnostics: resolved.diagnostics, entries: resolved.entries.map(({ text, data, ...entry }) => entry) };
+      if (action === 'explain' && (!positional[2] || positional[2].startsWith('--'))) throw new Error('Usage: shellgpt config explain <key>');
+      return { exitCode: resolved.diagnostics.length ? 1 : 0, stdout: JSON.stringify(value, null, 2) };
+    } catch (error) { return { exitCode: 1, stdout: '', stderr: error instanceof Error ? error.message : 'Configuration command failed.' }; }
   }
 
   const orchestrator = new ShellGPTOrchestrator(
@@ -341,6 +374,7 @@ export async function runCli(
         orchestrator.configManager.update((cfg) => {
           cfg.providers[id] = {
             id,
+            capabilities: [],
             name: id,
             type: id === 'asemprotic' ? 'asemprotic' : 'custom',
             enabled: true,
