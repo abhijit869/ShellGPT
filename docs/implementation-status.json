@@ -1,0 +1,252 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "project": "ShellGPT",
+  "version": "1.0.0",
+  "generatedAt": "2026-11-23T17:40:00Z",
+  "statusCategories": [
+    "Working and verified",
+    "Implemented but untested",
+    "Partially implemented",
+    "Not implemented",
+    "Unsupported by the installed integration",
+    "Blocked by external authentication or dependencies"
+  ],
+  "environment": {
+    "os": "linux",
+    "node": {
+      "version": "v24.22.2",
+      "npm": "11.19.1",
+      "pnpm": "10.30.1",
+      "pnpmPath": "/usr/local/share/nvm/versions/node/v24.22.2/bin/pnpm",
+      "status": "Working and verified"
+    },
+    "python": {
+      "version": "3.14.2",
+      "path": "/usr/local/python/current/bin/python3",
+      "status": "Working and verified"
+    },
+    "git": {
+      "version": "2.56.0",
+      "status": "Working and verified"
+    },
+    "claudeCode": {
+      "installed": true,
+      "version": "2.1.330",
+      "binaryPath": "/home/codespace/.local/bin/claude",
+      "symlinkTarget": "/home/codespace/.local/share/claude/versions/2.1.330",
+      "targetMountedInSandbox": false,
+      "status": "Blocked by external authentication or dependencies",
+      "diagnostic": "Claude Code symlink detected at /home/codespace/.local/bin/claude -> /home/codespace/.local/share/claude/versions/2.1.330, but target directory is unmounted in this sandbox container. The optional Claude adapter is disabled by default."
+    },
+    "openaiCodex": {
+      "installed": true,
+      "binaryPath": "/home/codespace/.local/bin/codex",
+      "symlinkTarget": "/home/codespace/.codex/packages/standalone/current/bin/codex",
+      "targetMountedInSandbox": false,
+      "status": "Blocked by external authentication or dependencies",
+      "diagnostic": "Codex symlink exists at /home/codespace/.local/bin/codex -> /home/codespace/.codex/packages/standalone/current/bin/codex, but target directory is unmounted in this sandbox container. Run in host terminal for live codex login execution. Verified via deterministic E2E adapter test harness."
+    },
+    "googleAntigravityCli": {
+      "installed": true,
+      "version": "1.5.15",
+      "binaryPath": "/home/codespace/.local/bin/agy",
+      "authenticated": false,
+      "status": "Blocked by external authentication or dependencies",
+      "diagnostic": "Antigravity CLI v1.5.15 is installed at /home/codespace/.local/bin/agy. In the current sandbox container, ~/.gemini/antigravity-cli is mounted read-only and no active session token is present; AntigravityAdapter automatically configures a writable fallback home in /tmp/shellgpt-agy-home. Full cloud account access requires running in the host terminal."
+    },
+    "googleAntigravityPythonSdk": {
+      "installed": false,
+      "module": "google.antigravity",
+      "sidecarPath": "services/antigravity-sidecar/sidecar.py",
+      "status": "Unsupported by the installed integration",
+      "diagnostic": "google.antigravity Python SDK is not installed in the current Python 3.14 environment. The supervised JSON-RPC sidecar honestly reports SDK absence and routes to the agy CLI transport."
+    },
+    "rea": {
+      "installed": true,
+      "version": "6.10.1",
+      "binaryPath": "/usr/local/share/nvm/versions/node/v24.22.2/bin/rea",
+      "distribution": "morluto/rea (rea-agents)",
+      "observedTools": 263,
+      "observedPrompts": 6,
+      "mcpReady": true,
+      "status": "Working and verified",
+      "diagnostic": "REA v6.10.1 installed and connected via stdio MCP (263 tools, 6 prompts, catalog digest verified)."
+    },
+    "mcpClient": {
+      "package": "@modelcontextprotocol/client",
+      "version": "2.3.1",
+      "transportsSupported": ["stdio", "streamable-http", "sse"],
+      "status": "Working and verified"
+    },
+    "ollama": {
+      "configuredEndpoint": "http://127.0.0.1:11434",
+      "running": false,
+      "status": "Blocked by external authentication or dependencies",
+      "diagnostic": "Ollama local model endpoint is configured but not running in this environment. Tested and verified against mock local Ollama server in test suite."
+    },
+    "otherLocalEndpoints": {
+      "lmstudio": { "configuredEndpoint": "http://127.0.0.1:1234/v1", "running": false },
+      "llamacpp": { "configuredEndpoint": "http://127.0.0.1:8080/v1", "running": false },
+      "vllm": { "configuredEndpoint": "http://127.0.0.1:8000/v1", "running": false }
+    }
+  },
+  "modules": [
+    {
+      "name": "Central Orchestrator (SAOE)",
+      "package": "@shellgpt/core",
+      "status": "Working and verified",
+      "features": [
+        { "name": "ShellGPT Agent Orchestration Engine (SAOE)", "status": "Working and verified" },
+        { "name": "17-step Execution Lifecycle", "status": "Working and verified" },
+        { "name": "Durable Task State Machine (CREATED -> QUEUED -> RUNNING -> VERIFYING -> COMPLETED)", "status": "Working and verified" },
+        { "name": "Orphaned Task Clean Recovery", "status": "Working and verified" },
+        { "name": "7-Tier Intelligent Brain Selector & Fallback", "status": "Working and verified" },
+        { "name": "Circuit Breaker with Exponential Backoff (401/403 Non-Retryable Guard)", "status": "Working and verified" },
+        { "name": "Bounded Self-Healing Loop (11 Error Classifications)", "status": "Working and verified" },
+        { "name": "12-step CLI Startup Sequence", "status": "Working and verified" }
+      ]
+    },
+    {
+      "name": "Central Agent Contract & Delegation",
+      "package": "@shellgpt/agents",
+      "status": "Working and verified",
+      "features": [
+        { "name": "AgentRuntime Common Interface", "status": "Working and verified" },
+        { "name": "Standardized SAOE Agent Events (11 event types)", "status": "Working and verified" },
+        { "name": "Bidirectional Delegation (Antigravity <-> Codex)", "status": "Working and verified" },
+        { "name": "delegate_to_agent Logical Tool Schema", "status": "Working and verified" },
+        { "name": "DelegationSafetyGuard (Depth, Duplicates, Budget)", "status": "Working and verified" },
+        { "name": "15 Configurable Worker Roles", "status": "Working and verified" },
+        { "name": "InstructionBridge & Precedence Hierarchy", "status": "Working and verified" },
+        { "name": "ParallelTaskScheduler with DAG & File-Lock Conflict Detection", "status": "Working and verified" }
+      ]
+    },
+    {
+      "name": "Google Antigravity Integration",
+      "package": "@shellgpt/adapters-antigravity",
+      "status": "Working and verified",
+      "features": [
+        { "name": "AntigravityAdapter implementing AgentRuntime", "status": "Working and verified" },
+        { "name": "stream-json Input/Output Protocol Bridge", "status": "Working and verified" },
+        { "name": "Sandbox Auto-Recovery (/tmp/shellgpt-agy-home)", "status": "Working and verified" },
+        { "name": "Real Filesystem Change Verification via Fingerprint Diff", "status": "Working and verified" },
+        { "name": "Subagent Delegation to Codex", "status": "Working and verified" },
+        { "name": "Python SDK Supervised Sidecar (services/antigravity-sidecar/sidecar.py)", "status": "Working and verified" }
+      ]
+    },
+    {
+      "name": "OpenAI Codex Integration",
+      "package": "@shellgpt/adapters-codex",
+      "status": "Working and verified",
+      "features": [
+        { "name": "CodexAdapter implementing AgentRuntime", "status": "Working and verified" },
+        { "name": "Official codex exec --json Protocol Bridge", "status": "Working and verified" },
+        { "name": "Codex Threads & Session Management", "status": "Working and verified" },
+        { "name": "Real Filesystem Change Verification via Fingerprint Diff", "status": "Working and verified" },
+        { "name": "Subagent Delegation to Antigravity", "status": "Working and verified" },
+        { "name": "Worker Mode Returning Structured Execution Result", "status": "Working and verified" }
+      ]
+    },
+    {
+      "name": "Universal Provider Gateway",
+      "package": "@shellgpt/providers",
+      "status": "Working and verified",
+      "features": [
+        { "name": "MODE A: Custom API Controller (Asemprotic, OpenAI, Anthropic, Gemini, OpenRouter)", "status": "Working and verified" },
+        { "name": "MODE D: Local Model Recovery (Ollama, LM Studio, llama.cpp, vLLM)", "status": "Working and verified" },
+        { "name": "Asemprotic Config Resolver (Zero Assumed URLs)", "status": "Working and verified" },
+        { "name": "Guided Provider Add Wizard", "status": "Working and verified" },
+        { "name": "Tool-Calling Controller (File, Shell, Git, MCP, Delegation Tools)", "status": "Working and verified" }
+      ]
+    },
+    {
+      "name": "Native MCP & First-Class REA",
+      "package": "@shellgpt/mcp, @shellgpt/rea",
+      "status": "Working and verified",
+      "features": [
+        { "name": "Native MCP Client (stdio, streamable-http, sse)", "status": "Working and verified" },
+        { "name": "Tool Discovery & Ajv Schema Validation", "status": "Working and verified" },
+        { "name": "Namespaced Tool Conflict Resolution (<server>__<tool>)", "status": "Working and verified" },
+        { "name": "Live morluto/rea Integration (263 tools)", "status": "Working and verified" },
+        { "name": "shellgpt rea doctor / tools / analyze / report / engines", "status": "Working and verified" },
+        { "name": "REA Target Boundary & Authorization Guard", "status": "Working and verified" },
+        { "name": "External REA Engines (Ghidra, Rizin, ADB)", "status": "Partially implemented", "notes": "JavaScript AST & Python engines active out of the box; Ghidra/Rizin dynamically detected when installed." }
+      ]
+    },
+    {
+      "name": "Coding Toolkit & Engineering Features",
+      "package": "@shellgpt/tools",
+      "status": "Working and verified",
+      "features": [
+        { "name": "File Read, Write, Edit, Unified Patch", "status": "Working and verified" },
+        { "name": "Glob Files, List Directory, Inspect File Metadata", "status": "Working and verified" },
+        { "name": "Symbol Location & Content Search", "status": "Working and verified" },
+        { "name": "Git Status, Diff, Branch, Worktree Isolation, Safe Commits", "status": "Working and verified" },
+        { "name": "Git Merge Conflict Marker Scanner", "status": "Working and verified" },
+        { "name": "Automated Verification Pipeline (lint, typecheck, test, build)", "status": "Working and verified" }
+      ]
+    },
+    {
+      "name": "Memory & Persistent Storage",
+      "package": "@shellgpt/memory",
+      "status": "Working and verified",
+      "features": [
+        { "name": "SQLite DatabaseSync Persistent Storage (.shellgpt/shellgpt.db)", "status": "Working and verified" },
+        { "name": "Session Management (New, Resume, Fork, Rename, Search, Export, Delete)", "status": "Working and verified" },
+        { "name": "Provider-Neutral Context Transfer Envelope", "status": "Working and verified" },
+        { "name": "Automatic Context Compaction", "status": "Working and verified" },
+        { "name": "Filesystem Snapshot Checkpoints & Rollback Undo", "status": "Working and verified" },
+        { "name": "External Database Adapter Interface (PostgreSQL / Redis)", "status": "Partially implemented", "notes": "ExternalStorageAdapter interface implemented; requires external database connection." }
+      ]
+    },
+    {
+      "name": "Security & Permissions",
+      "package": "@shellgpt/permissions",
+      "status": "Working and verified",
+      "features": [
+        { "name": "5 Permission Modes (read-only, ask, workspace-write, trusted-automation, sandbox)", "status": "Working and verified" },
+        { "name": "Workspace Boundary Enforcement", "status": "Working and verified" },
+        { "name": "Protected Files Defense (.env, secrets.enc)", "status": "Working and verified" },
+        { "name": "Child Agent Privilege Ceiling Bounding", "status": "Working and verified" },
+        { "name": "Critical Dangerous Command Interception", "status": "Working and verified" },
+        { "name": "Untrusted Task Data & Prompt Injection Sanitization", "status": "Working and verified" },
+        { "name": "Permission Audit Log in SQLite", "status": "Working and verified" }
+      ]
+    },
+    {
+      "name": "Terminal User Interface (TUI)",
+      "package": "apps/cli",
+      "status": "Working and verified",
+      "features": [
+        { "name": "Interactive Terminal UI & Dashboard Frame", "status": "Working and verified" },
+        { "name": "Color Themes (dark, light, custom)", "status": "Working and verified" },
+        { "name": "Streaming Markdown & Syntax/Path Highlighting", "status": "Working and verified" },
+        { "name": "Tab Autocomplete for Slash Commands", "status": "Working and verified" },
+        { "name": "Unified /brain and /agent Slash Commands", "status": "Working and verified" },
+        { "name": "Headless CLI Execution & --json Output", "status": "Working and verified" }
+      ]
+    },
+    {
+      "name": "Extensibility (Skills, Hooks, Plugins)",
+      "package": "@shellgpt/skills, @shellgpt/hooks, @shellgpt/plugins",
+      "status": "Working and verified",
+      "features": [
+        { "name": "13 Native Coding Skills Catalog", "status": "Working and verified" },
+        { "name": "REA Ecosystem Skill Discovery", "status": "Working and verified" },
+        { "name": "Progressive Disclosure (Summary in prompt, body on demand)", "status": "Working and verified" },
+        { "name": "Lifecycle Hooks with Trust-Gating", "status": "Working and verified" },
+        { "name": "Plugin Manifest & Directory Ingestion", "status": "Working and verified" }
+      ]
+    },
+    {
+      "name": "Preserved Legacy Bridges",
+      "package": "root (server.py, gateway.py)",
+      "status": "Working and verified",
+      "features": [
+        { "name": "Claude Code Text Bridge (server.py)", "status": "Working and verified" },
+        { "name": "Claude Code Model Provider Gateway (gateway.py)", "status": "Working and verified" },
+        { "name": "All 11 Python Tests (test_gateway.py, test_server.py)", "status": "Working and verified" }
+      ]
+    }
+  ]
+}

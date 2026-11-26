@@ -1,0 +1,201 @@
+{
+  "auditDate": "2026-11-23T18:03:33.282345+00:00",
+  "shellgptCheckpoint": "9de29d5",
+  "method": "shallow clones; recursive git tree inventory; selective source inspection, not an exhaustive code/security audit",
+  "repositories": {
+    "claude-code": {
+      "url": "https://github.com/anthropics/claude-code.git",
+      "commit": "50cdc7005318f630144c28217d1dada32e6ba762",
+      "checkout": "/tmp/shellgpt-v3-research/claude-code",
+      "trackedFiles": 3382,
+      "treeInventory": "docs/research/claude-code-tracked-tree.tsv",
+      "treeSha256": "a7909c800ac398852156f7a894968f22d5519e2a291be42aaa1fc96de8bd4a8e",
+      "examined": [
+        {
+          "path": "README.md",
+          "lines": "1-80",
+          "sha256": "07445fe9698dd4e038fa5b30ea3bde5f8f1480068b2f275fdd20725cecda0a6c"
+        },
+        {
+          "path": "LICENSE.md",
+          "lines": "all",
+          "sha256": "728158fd1037143fad6907e8fa34804177e598b7326519503fe83cafdef849e6"
+        },
+        {
+          "path": ".claude-plugin/marketplace.json",
+          "lines": "all",
+          "sha256": "29f7c781d9fca47412445df90896002ee83e28b48ee5ff9bd09a3c748e6447c1"
+        },
+        {
+          "path": "examples/settings/settings-strict.json",
+          "lines": "all",
+          "sha256": "24434853701e419d030668ca1f045f115cb66cca6edc3748dc90c0d3fa558843"
+        },
+        {
+          "path": "examples/settings/settings-lax.json",
+          "lines": "all",
+          "sha256": "668345c00b5622f2d632670e90d681c7fc408f55997f9ad0707bf2b79de54b4a"
+        },
+        {
+          "path": "examples/mdm/managed-settings.json",
+          "lines": "all",
+          "sha256": "61592cdc3d8983265ea33becbb59162c75b5cd9e26af7204b09b02c1488b6ad6"
+        },
+        {
+          "path": ".claude/commands/commit-push-pr.md",
+          "lines": "all",
+          "sha256": "15937f2f044999ad650abfb209a5fb36abd3f93f8b7847bf817f4098c2f4fdca"
+        },
+        {
+          "path": "examples/hooks/bash_command_validator_example.py",
+          "lines": "1-45",
+          "sha256": "0d7a9468405bb614ebddfb56037217cd9282a8045ea87a42cf6ff4099a61820d"
+        },
+        {
+          "path": ".github/workflows/claude.yml",
+          "lines": "1-45",
+          "sha256": "594eaf777f129bda5948f1d5d606986be9266935891e5c2aea1ab60928ab9ccc"
+        },
+        {
+          "path": "mods/hipaa-default/tests/register.test.ts",
+          "lines": "1-45",
+          "sha256": "a9068dc3c57fd43c6b41b3ac98d200e3caa5679e9d5ef9a5ac5045076c5a1c4d"
+        }
+      ]
+    },
+    "hermes-agent": {
+      "url": "https://github.com/NousResearch/hermes-agent.git",
+      "commit": "b4bacb9569727b0fb9b92685a25690fa50ccc5ea",
+      "checkout": "/tmp/shellgpt-v3-research/hermes-agent",
+      "trackedFiles": 27552,
+      "treeInventory": "docs/research/hermes-agent-tracked-tree.tsv",
+      "treeSha256": "f8c9cad1d236fc2e063368c183c3177a3ed1c2fc86158618a00900bf3d8de3f8",
+      "examined": [
+        {
+          "path": "README.md",
+          "lines": "1-120",
+          "sha256": "ca5c9f03262a10f7f996aa803b26a33f41a236f876c105da50367ff79de08271"
+        },
+        {
+          "path": "LICENSE",
+          "lines": "all",
+          "sha256": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6"
+        },
+        {
+          "path": "package.json",
+          "lines": "1-85",
+          "sha256": "ad3b899a2453baf2e42974e4c35996812244eb9d8e8bc9d35fea19ad97137768"
+        },
+        {
+          "path": "pyproject.toml",
+          "lines": "1-85",
+          "sha256": "d018a56c3a520b9afeb92e2211501eb98451dd0d3658db899bc58343c8d781eb"
+        },
+        {
+          "path": "run_agent.py",
+          "lines": "1-100",
+          "sha256": "caa61ab009b075fd0996f240307f9d72ab6d4be5d3992e98dac6c37667be0586"
+        },
+        {
+          "path": "agent/conversation_loop.py",
+          "lines": "1-70",
+          "sha256": "ecdfa9cb4fe05dd10ba8f1a7ecf365d874fe77ff960af7fd0378f3b86ada6369"
+        },
+        {
+          "path": "hermes_cli/runtime_provider.py",
+          "lines": "1-60",
+          "sha256": "2177e2aab93f2d443d858e5d9816c893a51c2b843c0f2be208aad0e0922cde67"
+        },
+        {
+          "path": "acp_adapter/entry.py",
+          "lines": "1-45",
+          "sha256": "867719e0f4b7aa2f0cdce2995c7b458a55e05ed2b749837998a14d4a71571967"
+        },
+        {
+          "path": "acp_adapter/server.py",
+          "lines": "1-45",
+          "sha256": "aa5ac9f6540b61e0ddddf210e68ef2cfc92dfc3bc631b4a422f9086a1456ee29"
+        },
+        {
+          "path": "hermes_cli/config.py",
+          "lines": "1-45",
+          "sha256": "66a8ed1e0a3405069142217dfd1620e64d6aa36878dcfdc9ad6aad27af4609d0"
+        },
+        {
+          "path": "hermes_cli/commands.py",
+          "lines": "1-45",
+          "sha256": "670fb93cc2f35c21e94dcd2b90a539d1a0f81f27f100031020fb79c6a9516955"
+        },
+        {
+          "path": "tools/registry.py",
+          "lines": "1-45",
+          "sha256": "85566ae8e9ab5b15423e0d6ab81b98ee8098c37a4f65275023d48390b4eff570"
+        },
+        {
+          "path": "persistence/__init__.py",
+          "lines": "1-45",
+          "sha256": "4958bf0c56acc5a9c22a59ae866933ff898cde16214db5331a91e6136471d749"
+        },
+        {
+          "path": "providers/__init__.py",
+          "lines": "1-45",
+          "sha256": "6ffbfaafe1033c00811472b78bbbe0d5e6d35e3fcf3217870f652b0bcc2274e1"
+        },
+        {
+          "path": "cron/scheduler.py",
+          "lines": "1-45",
+          "sha256": "111bb5768c9bf576d938535136eb37fd1f9074b37fea02e36a0b2c066380d285"
+        },
+        {
+          "path": "gateway/run.py",
+          "lines": "1-45",
+          "sha256": "6998ebb4f65a8dfe7d4bcf5e88ac3868393c497b2022c59ec499846b17c586c4"
+        },
+        {
+          "path": "ui-tui/package.json",
+          "lines": "1-45",
+          "sha256": "4b53b1110cdba70cafc3d37f39b526cb6e32237182a03ec1e5bd781d1826a58e"
+        },
+        {
+          "path": "plugins/security-guidance/NOTICE",
+          "lines": "all",
+          "sha256": "adc3dd09b90dd9240f56d5b9c782986028a312ab150c84a208de1a5d2b948227"
+        },
+        {
+          "path": "plugins/security-guidance/LICENSE",
+          "lines": "1-45",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "tests/acp_adapter/test_permissions.py",
+          "lines": "1-55",
+          "sha256": "bc290a23ddaf71b79065f7ec19c6b76471f8395e6687cfbb46e990216450f166"
+        },
+        {
+          "path": "tests/acp_adapter/test_session_mcp_selection.py",
+          "lines": "1-55",
+          "sha256": "2a922a37e1c5d2e38c767b9eb29e86f6f880292cbd5199aeb3138868d39130b6"
+        },
+        {
+          "path": "cli-config.yaml.example",
+          "lines": "1-50",
+          "sha256": "03f8442a8d93ab7389edc4edf804a9a84d196583edf08de6df79f1990db7cdcb"
+        },
+        {
+          "path": "skills/software-development/dogfood/SKILL.md",
+          "lines": "1-30",
+          "sha256": "b0c93d87d160da63ad489743880bdcee634ccb7f5b68c15a668ef80048b37916"
+        }
+      ]
+    }
+  },
+  "documentationConsulted": [
+    "https://code.claude.com/docs/en/claude-directory",
+    "https://code.claude.com/docs/en/settings",
+    "https://code.claude.com/docs/en/cli-reference",
+    "https://code.claude.com/docs/en/hooks",
+    "https://code.claude.com/docs/en/plugins",
+    "https://hermes-agent.nousresearch.com/docs/developer-guide/architecture",
+    "https://hermes-agent.nousresearch.com/docs/user-guide/configuration"
+  ]
+}

@@ -1,0 +1,67 @@
+general:
+  appName: ShellGPT
+  executionMode: auto
+  defaultWorkspace: "."
+  theme: dark
+  streaming: true
+  defaultPermissionMode: ask
+  outputStyle: standard
+
+routing:
+  preferCustomApiWhenHealthy: true
+  preferAntigravityWhenNoApi: true
+  fallbackToCodex: true
+  allowManualPinning: true
+  allowLocalModelRecovery: true
+  enableAutomaticFallback: true
+  allowBillableFallback: false
+  circuitBreakerThreshold: 3
+  circuitBreakerResetMs: 60000
+  maxRetries: 2
+
+agents:
+  antigravity:
+    enabled: true
+    primaryCapable: true
+    subagentCapable: true
+    binaryPath: agy
+    defaultModel: gemini-3.8-flash-low
+  codex:
+    enabled: true
+    primaryCapable: true
+    subagentCapable: true
+    binaryPath: codex
+    defaultModel: gpt-6-astra
+  customLlm:
+    enabled: true
+    controllerCapable: true
+  claude:
+    enabled: false
+    primaryCapable: false
+    subagentCapable: true
+    binaryPath: claude
+    defaultModel: claude-sonnet-5-5
+
+orchestration:
+  maxParallelWorkers: 3
+  maxRepairAttempts: 3
+  automaticVerification: true
+  gitWorktreeIsolation: true
+  conflictDetection: true
+  requireApprovalForDestructiveActions: true
+  taskTimeoutMs: 180000
+
+mcp:
+  enabled: true
+  reaEnabled: true
+  discovery: true
+  toolPermissionChecks: true
+
+memory:
+  persistentSessions: true
+  sqliteEnabled: true
+  databasePath: ".shellgpt/shellgpt.db"
+  contextCompaction: true
+  maxContextTokens: 120000
+  automaticCheckpoints: true
+  retentionDays: 90
